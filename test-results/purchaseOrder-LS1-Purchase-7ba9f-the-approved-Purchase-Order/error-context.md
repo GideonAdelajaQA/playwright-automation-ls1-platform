@@ -1,0 +1,184 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - main [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - img [ref=e8]
+          - paragraph [ref=e11]: "Today's Date: 17 April 2026"
+        - generic [ref=e12]:
+          - paragraph [ref=e14]: XD
+          - generic [ref=e15]:
+            - paragraph [ref=e16]: XO Distributing
+            - paragraph [ref=e17]: Distributor
+      - generic [ref=e20]:
+        - paragraph [ref=e21]:
+          - generic [ref=e22] [cursor=pointer]: Orders
+          - img [ref=e23]
+          - generic [ref=e25]: Create Sales Order
+        - generic [ref=e28]:
+          - button "Order Details" [ref=e29] [cursor=pointer]
+          - button "Documentation" [ref=e30] [cursor=pointer]
+        - generic [ref=e32]:
+          - generic [ref=e34]:
+            - generic [ref=e35]:
+              - heading "Sales Order Details" [level=2] [ref=e36]
+              - paragraph [ref=e37]: Enter the details of this order
+            - generic [ref=e40]:
+              - generic [ref=e41]:
+                - generic [ref=e42]: SO Number *
+                - textbox "Enter" [ref=e44]: SO-1776433396836
+              - generic [ref=e45]:
+                - generic [ref=e46]: Linked PO Number
+                - textbox "Unique system gen-iD" [ref=e48]: PO-1776433366527
+              - generic [ref=e51]:
+                - generic [ref=e52]: Distributors Name
+                - generic:
+                  - generic:
+                    - generic: XO Distributing
+                    - img
+              - generic [ref=e53]:
+                - generic [ref=e54]: Delivery Location
+                - textbox "Unique system gen-iD" [ref=e56]: Gestid Stores
+              - generic [ref=e57]:
+                - generic [ref=e58]: Request Delivery Date
+                - textbox [ref=e60]:
+                  - /placeholder: Unique system gen-iD
+                  - text: 2026-04-17
+              - generic [ref=e61]:
+                - generic [ref=e62]: Request Agreed Date *
+                - textbox [ref=e64]:
+                  - /placeholder: Unique system gen-iD
+                  - text: 2026-04-17
+              - generic [ref=e65]:
+                - generic [ref=e66]: Payment Term
+                - combobox [active] [ref=e67] [cursor=pointer]:
+                  - generic: Transfer
+                  - img [ref=e68]
+              - generic [ref=e70]:
+                - generic [ref=e71]: Loading Store
+                - combobox [ref=e72] [cursor=pointer]:
+                  - generic: XO stores
+                  - img [ref=e73]
+          - generic [ref=e75]:
+            - generic [ref=e76]:
+              - heading "Product Details" [level=2] [ref=e77]
+              - paragraph [ref=e78]: Select products for this order
+            - generic [ref=e79]:
+              - generic [ref=e80]:
+                - paragraph [ref=e82]: Item No
+                - paragraph [ref=e84]: Product Id
+                - paragraph [ref=e86]: Product Name
+                - paragraph [ref=e88]: Price/Unit (₦)
+                - paragraph [ref=e90]: Quantity Requested
+                - paragraph [ref=e92]: "% Tax"
+                - paragraph [ref=e94]: "% Discount"
+                - paragraph [ref=e96]: Quantity Confirmed *
+                - paragraph [ref=e98]: Total Value (₦)
+              - generic [ref=e99]:
+                - paragraph [ref=e101]: "1"
+                - textbox "Auto" [ref=e104]: "103"
+                - textbox "Auto" [ref=e107]: Jennies Eggs
+                - textbox "Enter" [ref=e110]: 3,000.00
+                - spinbutton [ref=e113]: "10"
+                - textbox [ref=e116]: "7.5"
+                - textbox [ref=e119]: "0"
+                - spinbutton [ref=e122]: "0"
+                - textbox [ref=e125]: 30,000.00
+            - generic [ref=e127]:
+              - generic [ref=e128]:
+                - paragraph [ref=e129]: Value (₦)
+                - paragraph [ref=e130]: "0.00"
+              - generic [ref=e131]:
+                - paragraph [ref=e132]: Discount Amount (₦)
+                - paragraph [ref=e133]: "0.00"
+              - generic [ref=e134]:
+                - paragraph [ref=e135]: VAT Amount (₦)
+                - paragraph [ref=e136]: 2,250.00
+              - generic [ref=e137]:
+                - paragraph [ref=e138]: Total (₦)
+                - paragraph [ref=e139]: 2,250.00
+              - generic [ref=e140]:
+                - paragraph [ref=e141]: Available Credit Balance (₦)
+                - paragraph [ref=e142]: 4,521,625.00
+          - generic [ref=e143]:
+            - button "Cancel" [ref=e144] [cursor=pointer]
+            - button "Proceed" [disabled]
+    - generic [ref=e145]:
+      - generic "close sidebar"
+      - generic [ref=e147]:
+        - generic [ref=e149]:
+          - img "logo" [ref=e150]
+          - img "logo" [ref=e151]
+          - img "logo" [ref=e152]
+        - generic [ref=e153]:
+          - list [ref=e156]:
+            - listitem [ref=e157]:
+              - link "Dashboard" [ref=e158] [cursor=pointer]:
+                - /url: /customer/dashboard
+                - img [ref=e160]
+                - generic [ref=e163]: Dashboard
+          - list [ref=e166]:
+            - listitem [ref=e167]:
+              - group [ref=e168]:
+                - generic "Operations" [ref=e169]:
+                  - img [ref=e171]
+                  - text: Operations
+                - list [ref=e177]:
+                  - listitem [ref=e178] [cursor=pointer]:
+                    - link "Purchase Orders" [ref=e179]:
+                      - /url: "/customer/operations/purchase-orders "
+                  - listitem [ref=e180] [cursor=pointer]:
+                    - link "Sales Orders" [ref=e181]:
+                      - /url: "/customer/operations/sales-orders "
+                  - listitem [ref=e182] [cursor=pointer]:
+                    - link "deliveries" [ref=e183]:
+                      - /url: "/customer/operations/deliveries "
+                  - listitem [ref=e184] [cursor=pointer]:
+                    - link "shipments" [ref=e185]:
+                      - /url: "/customer/operations/shipments "
+                  - listitem [ref=e186] [cursor=pointer]:
+                    - link "invoices" [ref=e187]:
+                      - /url: "/customer/operations/invoices "
+                  - listitem [ref=e188] [cursor=pointer]:
+                    - link "disputes" [ref=e189]:
+                      - /url: "/customer/operations/disputes "
+          - list [ref=e192]:
+            - listitem [ref=e193]:
+              - group [ref=e194]:
+                - generic "Customer Master" [ref=e195]:
+                  - img [ref=e197]
+                  - text: Customer Master
+          - list [ref=e202]:
+            - listitem [ref=e203]:
+              - group [ref=e204]:
+                - generic "Inventory master" [ref=e205]:
+                  - img [ref=e207]
+                  - text: Inventory master
+          - list [ref=e215]:
+            - listitem [ref=e216]:
+              - group [ref=e217]:
+                - generic "System Config." [ref=e218]:
+                  - img [ref=e220]
+                  - text: System Config.
+          - list [ref=e224]:
+            - listitem [ref=e225]:
+              - group [ref=e226]:
+                - generic "reports" [ref=e227]:
+                  - img [ref=e229]
+                  - text: reports
+          - list [ref=e234]:
+            - listitem [ref=e235]:
+              - group [ref=e236]:
+                - generic "system settings" [ref=e237]:
+                  - img [ref=e239]
+                  - text: system settings
+          - button "Collapse sidebar" [ref=e242] [cursor=pointer]:
+            - img [ref=e243]
+        - generic [ref=e247] [cursor=pointer]:
+          - img [ref=e249]
+          - paragraph [ref=e252]: Logout
+  - region "Notifications Alt+T"
+```
