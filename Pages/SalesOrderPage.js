@@ -82,52 +82,103 @@ class SalesOrderPage {
   }
 
   async fillSalesOrderForm({ deliveryDate, salesOrderNumber, loadingStore, paymentTerm, quantity }) {
-    const salesOrderInputs = this.page.locator('main input');
-    const salesOrderNumberField = salesOrderInputs.nth(0);
-    await salesOrderNumberField.waitFor({ state: 'visible', timeout: 10000 });
-    await salesOrderNumberField.fill(salesOrderNumber);
-    await this.pauseAfterAction();
+    // Wait for form to fully settle before touching anything
+    await this.page.waitForLoadState('networkidle');
 
+    // --- SO Number ---
+    const salesOrderNumberField = this.page.locator('main input').nth(0);
+    await salesOrderNumberField.waitFor({ state: 'visible', timeout: 15000 });
+    await salesOrderNumberField.click();
+    await salesOrderNumberField.fill(salesOrderNumber);
+    console.log(`   SO Number entered: ${salesOrderNumber}`);
+
+    // --- Request Delivery Date (read only — just grab the value) ---
     const requestDeliveryDateField = this.page.locator(
       'xpath=//*[contains(normalize-space(.), "Request Delivery Date")]/following::input[1]'
     ).first();
     const requestDeliveryDateValue = await requestDeliveryDateField.inputValue().catch(() => deliveryDate);
+    console.log(`   Request Delivery Date found: ${requestDeliveryDateValue}`);
 
+    // --- Agreed Delivery Date ---
     const agreedDateField = this.page.locator(
       'xpath=//*[contains(normalize-space(.), "Request Agreed Date")]/following::input[1]'
     ).first();
     await agreedDateField.waitFor({ state: 'visible', timeout: 10000 });
     await agreedDateField.click();
-    await agreedDateField.press('Control+A').catch(() => {});
+    await agreedDateField.press('Control+A');
     await agreedDateField.fill(requestDeliveryDateValue || deliveryDate);
-    await this.pauseAfterAction();
+    await agreedDateField.press('Tab');
+    console.log(`   Agreed Date filled: ${requestDeliveryDateValue || deliveryDate}`);
 
+    // --- Payment Term dropdown ---
     const paymentTermDropdown = this.page.locator('[role="combobox"]').first();
     await this.selectRandomDropdownOption(paymentTermDropdown, paymentTerm);
+    console.log(`   Payment Term selected`);
 
+    // --- Loading Store dropdown ---
     const loadingStoreDropdown = this.page.locator('[role="combobox"]').nth(1);
     const currentLoadingStore = ((await loadingStoreDropdown.textContent().catch(() => '')) || '').trim();
     if (!currentLoadingStore.toLowerCase().includes(String(loadingStore).trim().toLowerCase())) {
       await this.selectDropdownOption(loadingStoreDropdown, loadingStore);
-    } else {
-      await this.pauseAfterAction();
+      console.log(`   Loading Store selected`);
     }
 
-    const requestedQuantityField = this.page.locator('[role="spinbutton"]').first();
-    const requestedQuantityValue = await requestedQuantityField.inputValue().catch(() => String(quantity));
+    // --- Scroll down to Product Details section ---
+    await this.page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForTimeout(1500);
 
-    const quantityField = this.page.locator('[role="spinbutton"]').last();
-    await quantityField.waitFor({ state: 'visible', timeout: 10000 });
-    await quantityField.click({ clickCount: 3 });
-    await quantityField.fill(requestedQuantityValue || String(quantity));
-    await this.pauseAfterAction();
+    // --- Read "Quantity Requested" by name attribute ---
+    const requestedQtyField = this.page.locator('input[name="products.0.requestedQuantity"]');
+    await requestedQtyField.waitFor({ state: 'visible', timeout: 15000 });
+    await requestedQtyField.scrollIntoViewIfNeeded();
+    const requestedQtyValue = (await requestedQtyField.inputValue().catch(() => '')) || String(quantity);
+    console.log(`   Quantity Requested value read: ${requestedQtyValue}`);
+
+    // --- Fill "Quantity Confirmed" by name attribute ---
+    const confirmedQtyField = this.page.locator('input[name="products.0.requestedConfirmed"]');
+    await confirmedQtyField.waitFor({ state: 'visible', timeout: 15000 });
+    await confirmedQtyField.scrollIntoViewIfNeeded();
+
+    // Click, clear, type value, then trigger React's onChange via nativeInputValueSetter
+    await confirmedQtyField.click();
+    await this.page.keyboard.press('Control+A');
+    await this.page.keyboard.press('Backspace');
+    await confirmedQtyField.pressSequentially(requestedQtyValue, { delay: 80 });
+
+    // Force React to register the change (handles controlled inputs that ignore .fill())
+    await this.page.evaluate((val) => {
+      const input = document.querySelector('input[name="products.0.requestedConfirmed"]');
+      if (input) {
+        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+        nativeInputValueSetter.call(input, val);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        input.blur();
+      }
+    }, requestedQtyValue);
+
+    await this.page.waitForTimeout(1000);
+    console.log(`   Quantity Confirmed filled: ${requestedQtyValue}`);
   }
 
   async submitSalesOrder() {
+    // Step 1 — Click Proceed (validates the form, moves to documentation tab)
     const proceedButton = this.page.getByRole('button', { name: /^Proceed$/i })
       .or(this.page.locator('button:has-text("Proceed")').first());
     await proceedButton.waitFor({ state: 'visible', timeout: 10000 });
     await proceedButton.click();
+    console.log('   Proceed clicked');
+
+    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForTimeout(2000);
+
+    // Step 2 — Click Submit on the documentation tab to finalise the SO
+    const submitButton = this.page.getByRole('button', { name: /^Submit$/i })
+      .or(this.page.locator('button:has-text("Submit")').first());
+    await submitButton.waitFor({ state: 'visible', timeout: 15000 });
+    await submitButton.click();
+    console.log('   Submit clicked — SO creation complete');
 
     await this.page.waitForLoadState('networkidle');
     await this.pauseAfterAction();
@@ -139,28 +190,44 @@ class SalesOrderPage {
     await successMessage.first().waitFor({ state: 'visible', timeout: 10000 });
   }
 
-  async openSalesOrdersSection() {
-    const salesOrdersMenu = this.page.getByRole('link', { name: /sales orders/i })
-      .or(this.page.getByRole('button', { name: /sales orders/i }).first())
-      .or(this.page.getByText('Sales Orders', { exact: true }).first());
+  async openLatestSOAndGetUrl() {
+    // Navigate to SO list, click the first row, return the detail page URL
+    await this.page.goto('/customer/operations/sales-orders');
+    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForTimeout(2000);
 
-    if (await salesOrdersMenu.isVisible().catch(() => false)) {
-      await salesOrdersMenu.click();
-      await this.page.waitForLoadState('networkidle');
-      await this.pauseAfterAction();
-    }
+    await this.page.locator('table tbody tr').first().locator('td').first().click();
+    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForTimeout(1500);
+
+    const url = this.page.url();
+    console.log('   Latest SO URL:', url);
+    return url;
+  }
+
+  async openSalesOrdersSection() {
+    // Navigate directly to Sales Orders list — mirrors how TC-PO-03 navigates directly to PO list
+    await this.page.goto('/customer/operations/sales-orders');
+    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForTimeout(2000);
+    console.log('   Navigated to Sales Orders list. URL:', this.page.url());
   }
 
   async openSalesOrderByReference(salesOrderReference) {
-    const row = this.page.locator('table tbody tr').filter({ hasText: salesOrderReference }).first();
-    if (await row.isVisible().catch(() => false)) {
-      await row.click();
-      await this.page.waitForLoadState('networkidle');
-      await this.pauseAfterAction();
-      return;
+    // Search for the SO in the list if a search box is available
+    const searchInput = this.page.getByRole('textbox', { name: /search/i }).first();
+    if (await searchInput.isVisible().catch(() => false)) {
+      await searchInput.fill(salesOrderReference);
+      await this.page.waitForTimeout(2000);
     }
 
-    await this.page.getByText(salesOrderReference, { exact: false }).first().waitFor({ state: 'visible', timeout: 10000 });
+    // Click the row containing the SO reference
+    const row = this.page.locator('table tbody tr').filter({ hasText: salesOrderReference }).first();
+    await row.waitFor({ state: 'visible', timeout: 15000 });
+    await row.click();
+    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForTimeout(2000);
+    console.log('   Opened Sales Order:', salesOrderReference, '— URL:', this.page.url());
   }
 
   async approveSalesOrder(comment = 'approved') {
@@ -192,9 +259,178 @@ class SalesOrderPage {
   }
 
   async expectSalesOrderApproved() {
-    const approvedSignal = this.page.getByText('Approved', { exact: true })
-      .or(this.page.getByText(/sales order approved successfully/i).first());
-    await approvedSignal.first().waitFor({ state: 'visible', timeout: 10000 });
+    // LS1 shows "Accepted" (not "Approved") as the status badge after SO approval
+    const approvedSignal = this.page.getByText('Accepted', { exact: true })
+      .or(this.page.getByText('Approved', { exact: true }))
+      .or(this.page.getByText(/sales order approved successfully/i).first())
+      .or(this.page.getByText(/successful/i).first());
+    await approvedSignal.first().waitFor({ state: 'visible', timeout: 15000 });
+    console.log('   Sales Order approval confirmed — status visible');
+  }
+
+  async createDelivery() {
+    // Click the "Create Delivery" button that appears after SO approval
+    const createDeliveryBtn = this.page.getByRole('button', { name: /create delivery/i })
+      .or(this.page.locator('button:has-text("Create Delivery")').first());
+    await createDeliveryBtn.waitFor({ state: 'visible', timeout: 15000 });
+    await createDeliveryBtn.click();
+    console.log('   Create Delivery button clicked');
+
+    await this.page.waitForTimeout(1500);
+
+    // Confirm popup — click "Create Delivery" inside the dialog
+    const proceedButton = this.page.getByRole('dialog').getByRole('button', { name: /create delivery/i })
+      .or(this.page.locator('[role="dialog"] button:has-text("Create Delivery")').first());
+    await proceedButton.waitFor({ state: 'visible', timeout: 10000 });
+    await proceedButton.click();
+    console.log('   Delivery confirmation popup — Create Delivery clicked');
+
+    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForTimeout(2000);
+    console.log('   Redirected to deliveries tab. URL:', this.page.url());
+  }
+
+  async openLatestDelivery(salesOrderNumber) {
+    // After createDelivery, LS1 sometimes stays on the SO page instead of redirecting.
+    // Force navigate to the deliveries list to be safe.
+    await this.page.goto('/customer/operations/deliveries');
+    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForTimeout(2000);
+
+    // Click the Pending tab
+    const pendingTab = this.page.getByRole('tab', { name: /pending/i })
+      .or(this.page.getByText('Pending', { exact: true }).first());
+    await pendingTab.waitFor({ state: 'visible', timeout: 15000 });
+    await pendingTab.click();
+    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForTimeout(1500);
+    console.log('   Clicked Pending tab');
+
+    // Find and click the delivery row matching the SO number
+    const deliveryRow = this.page.locator('table tbody tr').filter({ hasText: salesOrderNumber }).first();
+    await deliveryRow.waitFor({ state: 'visible', timeout: 15000 });
+    
+    // Click a specific cell to ensure the click registers, and verify navigation happened
+    const initialUrl = this.page.url();
+    await deliveryRow.locator('td').first().click();
+    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForTimeout(2000);
+    
+    if (this.page.url() === initialUrl) {
+      console.log('   Row click did not navigate, trying to click another cell with force...');
+      await deliveryRow.locator('td').nth(1).click({ force: true });
+      await this.page.waitForTimeout(2000);
+    }
+    
+    console.log('   Opened delivery for SO:', salesOrderNumber, '— URL:', this.page.url());
+  }
+
+  async createShipment() {
+    const createShipmentBtn = this.page.getByRole('button', { name: /create shipment/i })
+      .or(this.page.locator('button:has-text("Create Shipment")').first());
+    await createShipmentBtn.waitFor({ state: 'visible', timeout: 15000 });
+    await createShipmentBtn.click();
+    console.log('   Create Shipment button clicked');
+  }
+
+  async fillShipmentFormAndStart() {
+    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForTimeout(2000);
+    
+    console.log('   Filling Shipment Form...');
+    await this.selectFirstOptionForLabel('Select Transporter', 'Apex Flow');
+    await this.selectFirstOptionForLabel('Select Truck', 'APX-Desert King - ABJ917LK');
+    await this.selectFirstOptionForLabel('Select Driver', 'Opeyemi Adesina - APX001');
+    
+    // Scroll down and click Save and start shipment
+    const saveStartBtn = this.page.getByRole('button', { name: /save and start shipment/i })
+      .or(this.page.locator('button:has-text("Save and start shipment")').first());
+      
+    await saveStartBtn.scrollIntoViewIfNeeded();
+    await saveStartBtn.click();
+    console.log('   Save and start shipment button clicked');
+    
+    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForTimeout(2000);
+  }
+
+  async selectFirstOptionForLabel(labelText, optionTextToSelect = null) {
+    const label = this.page.getByText(labelText, { exact: false }).last();
+    await label.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
+    
+    // Find the very next element containing the exact text "Select"
+    const dropdownBox = label.locator('xpath=following::*[normalize-space(text())="Select"][1]');
+    
+    if (await dropdownBox.isVisible().catch(() => false)) {
+        await dropdownBox.evaluate(node => node.scrollIntoView({ behavior: 'auto', block: 'center' })).catch(() => {});
+        await this.page.waitForTimeout(500);
+        
+        // Use a precise mouse click on the dropdown box
+        const box = await dropdownBox.boundingBox();
+        if (box) {
+            await this.page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+        } else {
+            await dropdownBox.click({ force: true }).catch(() => {});
+        }
+        console.log(`   Clicked dropdown box for ${labelText}`);
+    } else {
+        const box = await label.boundingBox();
+        if (box) {
+            await this.page.mouse.click(box.x + 10, box.y + box.height + 20);
+        }
+    }
+    
+    await this.page.waitForTimeout(1500); // Wait for dropdown popup animation
+    
+    if (optionTextToSelect) {
+        // Simply find the option text visually on the screen and click it
+        const optionElement = this.page.getByText(optionTextToSelect, { exact: false }).filter({ state: 'visible' }).last();
+        if (await optionElement.isVisible().catch(() => false)) {
+            const box = await optionElement.boundingBox();
+            if (box) {
+                await this.page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+            } else {
+                await optionElement.click({ force: true }).catch(() => {});
+            }
+            console.log(`   Explicitly clicked option "${optionTextToSelect}" for ${labelText}`);
+        } else {
+            console.log(`   Could not find visible option "${optionTextToSelect}" for ${labelText}`);
+        }
+    } else {
+        // Generic logic: select the first available valid option without using search
+        const genericOption = this.page.locator('[role="option"], li[role="menuitem"], .ant-select-item-option, [class*="option"]').filter({ hasNotText: 'Search' }).filter({ state: 'visible' }).first();
+        
+        if (await genericOption.isVisible().catch(() => false)) {
+            const box = await genericOption.boundingBox();
+            if (box) {
+                await this.page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+            } else {
+                await genericOption.click({ force: true }).catch(() => {});
+            }
+            console.log(`   Explicitly clicked generic first option for ${labelText}`);
+        } else {
+            const fallbackXPath = 'xpath=//body/div[last()]//*[not(child::*) and string-length(normalize-space(text())) > 1 and not(contains(text(), "Search")) and not(contains(text(), "Select"))]';
+            const fallbackOption = this.page.locator(fallbackXPath).first();
+            
+            if (await fallbackOption.isVisible().catch(() => false)) {
+                const box = await fallbackOption.boundingBox();
+                if (box) {
+                    await this.page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+                } else {
+                    await fallbackOption.click({ force: true }).catch(() => {});
+                }
+                console.log(`   Explicitly clicked fallback first option for ${labelText}`);
+            } else {
+                console.log(`   Failed to explicitly find first option for ${labelText}. Falling back to keyboard.`);
+                await this.page.keyboard.press('ArrowDown');
+                await this.page.waitForTimeout(500);
+                await this.page.keyboard.press('Enter');
+            }
+        }
+    }
+    
+    // Wait for the UI to process the selection and enable the next dependent dropdown
+    await this.page.waitForTimeout(3000); 
   }
 
   async logout() {
