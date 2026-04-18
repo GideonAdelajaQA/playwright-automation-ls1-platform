@@ -58,7 +58,7 @@ ls1-playwright/
 
 ## Before First Run — Calibrate Selectors
 
-The PO form uses Radix UI comboboxes (same as the Cypress suite).
+The PO form uses Radix UI comboboxes 
 Do these two things before running:
 
 1. **Update `utils/testData.js`** — replace `RetroSip Nigeria Ltd` and `Malta`
