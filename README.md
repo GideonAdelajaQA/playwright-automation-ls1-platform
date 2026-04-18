@@ -1,5 +1,5 @@
-# LS1 Playwright Test Suite
-**Flow covered:** Login → Raise Purchase Order → Approve Purchase Order
+# LS1 Playwright e2e Test Suite
+**Flow covered:** Login → Raise Purchase Order → Approve Purchase Order → Create Sales Order → Approve sales Order → Create Delivery → Create Shipment → POD OTP        
 
 ---
 
