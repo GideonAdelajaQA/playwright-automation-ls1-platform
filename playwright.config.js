@@ -12,7 +12,7 @@ module.exports = defineConfig({
   timeout: 600000,
   retries: 1,
   use: {
-    baseURL: process.env.BASE_URL || 'https://ls1dev.web.app',
+    baseURL: process.env.BASE_URL || 'https://d2dzzh5k55q3c6.cloudfront.net',
     browserName: 'chromium',
     ...(useBrave ? { executablePath: bravePath } : {}),
     headless: !headed,
