@@ -360,7 +360,37 @@ test.describe('LS1 Purchase Order Flow', () => {
     console.log('   Clicked Verify/Submit OTP');
     
     await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(1500);
+
+    // Some LS1 builds show one more Proceed action after OTP verification.
+    // Click it before leaving the delivery detail page so the POD completion is committed.
+    const postOtpProceedBtn = page.getByRole('dialog').getByRole('button', { name: /proceed/i }).last()
+      .or(page.locator('[role="dialog"], .modal, .ant-modal, .MuiDialog-root').getByRole('button', { name: /proceed/i }).last())
+      .or(page.getByRole('button', { name: /^proceed$/i }).last());
+
+    if (await postOtpProceedBtn.isVisible().catch(() => false)) {
+      await postOtpProceedBtn.click();
+      console.log('   Clicked Proceed after OTP verification');
+      await page.waitForLoadState('networkidle');
+      await page.waitForTimeout(2000);
+    }
+
+    await dashboard.navigateToDeliveries();
+
+    const completedTab = page.getByRole('tab', { name: /completed/i })
+      .or(page.getByText('Completed', { exact: true }).last());
+
+    await completedTab.waitFor({ state: 'visible', timeout: 15000 });
+    await completedTab.click({ force: true });
+    await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
+    console.log('   Navigated to Completed deliveries tab. Current URL:', page.url());
+
+    const completedDeliveryRow = page.locator('tr').filter({ hasText: salesOrderNumber }).first()
+      .or(page.locator('.row, .list-item').filter({ hasText: salesOrderNumber }).first());
+
+    await completedDeliveryRow.waitFor({ state: 'visible', timeout: 20000 });
+    console.log(`   Confirmed completed delivery is visible: ${salesOrderNumber}`);
   });
 
 });

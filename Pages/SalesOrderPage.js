@@ -336,11 +336,15 @@ class SalesOrderPage {
   async fillShipmentFormAndStart() {
     await this.page.waitForLoadState('networkidle');
     await this.page.waitForTimeout(2000);
+
+    const transporter = process.env.LS1_TRANSPORTER || 'Apex Flow';
+    const truck = process.env.LS1_TRUCK || 'APX-Desert King - ABJ917LK';
+    const driver = process.env.LS1_DRIVER || 'Opeyemi Adesina - APX001';
     
     console.log('   Filling Shipment Form...');
-    await this.selectFirstOptionForLabel('Select Transporter', 'Apex Flow');
-    await this.selectFirstOptionForLabel('Select Truck', 'APX-Desert King - ABJ917LK');
-    await this.selectFirstOptionForLabel('Select Driver', 'Opeyemi Adesina - APX001');
+    await this.selectFirstOptionForLabel('Select Transporter', transporter);
+    await this.selectFirstOptionForLabel('Select Truck', truck);
+    await this.selectFirstOptionForLabel('Select Driver', driver);
     
     // Scroll down and click Save and start shipment
     const saveStartBtn = this.page.getByRole('button', { name: /save and start shipment/i })
@@ -352,6 +356,121 @@ class SalesOrderPage {
     
     await this.page.waitForLoadState('networkidle');
     await this.page.waitForTimeout(2000);
+  }
+
+  escapeRegExp(text) {
+    return String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  async clickLocatorCenter(locator) {
+    const box = await locator.boundingBox();
+    if (box) {
+      await this.page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+      return;
+    }
+
+    await locator.click({ force: true });
+  }
+
+  async findVisibleDropdownOption(optionText) {
+    const optionRegex = new RegExp(this.escapeRegExp(optionText), 'i');
+    const candidates = [
+      this.page.getByRole('option', { name: optionRegex }).last(),
+      this.page.locator('[role="option"], .ant-select-item-option, [class*="option"], li, [cmdk-item]')
+        .filter({ hasText: optionRegex })
+        .last(),
+      this.page.getByText(optionRegex).last(),
+    ];
+
+    for (const candidate of candidates) {
+      if (await candidate.isVisible().catch(() => false)) {
+        return candidate;
+      }
+    }
+
+    return null;
+  }
+
+  async getOpenDropdownPanel() {
+    const panels = this.page.locator([
+      '[role="listbox"]',
+      '.rc-virtual-list-holder',
+      '.ant-select-dropdown:not(.ant-select-dropdown-hidden)',
+      '.MuiPopover-root [role="presentation"]',
+      '.MuiMenu-paper',
+      '[class*="menu"]',
+      '[class*="popover"]',
+    ].join(', '));
+
+    const count = await panels.count().catch(() => 0);
+    for (let index = count - 1; index >= 0; index -= 1) {
+      const panel = panels.nth(index);
+      if (await panel.isVisible().catch(() => false)) {
+        return panel;
+      }
+    }
+
+    return null;
+  }
+
+  async searchOpenDropdown(optionText) {
+    const searchInput = this.page.locator([
+      '[role="listbox"] input',
+      '.ant-select-focused .ant-select-selection-search-input',
+      '.ant-select-dropdown input',
+      '.MuiPopover-root input',
+      '.MuiMenu-paper input',
+    ].join(', ')).last();
+
+    if (!await searchInput.isVisible().catch(() => false)) {
+      return false;
+    }
+
+    await searchInput.fill(optionText);
+    await this.page.waitForTimeout(800);
+
+    const option = await this.findVisibleDropdownOption(optionText);
+    if (!option) {
+      return false;
+    }
+
+    await this.clickLocatorCenter(option);
+    return true;
+  }
+
+  async scrollOpenDropdownToOption(optionText) {
+    if (await this.searchOpenDropdown(optionText)) {
+      return true;
+    }
+
+    const panel = await this.getOpenDropdownPanel();
+    const scrollTarget = panel || this.page.locator('body');
+
+    for (let attempt = 0; attempt < 24; attempt += 1) {
+      const option = await this.findVisibleDropdownOption(optionText);
+      if (option) {
+        await option.scrollIntoViewIfNeeded().catch(() => {});
+        await this.clickLocatorCenter(option);
+        return true;
+      }
+
+      if (panel) {
+        await panel.evaluate((node) => {
+          const scrollables = [node, ...node.querySelectorAll('*')]
+            .filter((element) => element.scrollHeight > element.clientHeight);
+          for (const element of scrollables) {
+            element.scrollTop += Math.max(element.clientHeight * 0.85, 120);
+          }
+        }).catch(() => {});
+      }
+
+      await scrollTarget.hover().catch(() => {});
+      await this.page.mouse.wheel(0, 450);
+      await this.page.keyboard.press('ArrowDown').catch(() => {});
+      await this.page.waitForTimeout(250);
+    }
+
+    return false;
   }
 
   async selectFirstOptionForLabel(labelText, optionTextToSelect = null) {
@@ -383,19 +502,11 @@ class SalesOrderPage {
     await this.page.waitForTimeout(1500); // Wait for dropdown popup animation
     
     if (optionTextToSelect) {
-        // Simply find the option text visually on the screen and click it
-        const optionElement = this.page.getByText(optionTextToSelect, { exact: false }).filter({ state: 'visible' }).last();
-        if (await optionElement.isVisible().catch(() => false)) {
-            const box = await optionElement.boundingBox();
-            if (box) {
-                await this.page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-            } else {
-                await optionElement.click({ force: true }).catch(() => {});
-            }
-            console.log(`   Explicitly clicked option "${optionTextToSelect}" for ${labelText}`);
-        } else {
-            console.log(`   Could not find visible option "${optionTextToSelect}" for ${labelText}`);
+        const selected = await this.scrollOpenDropdownToOption(optionTextToSelect);
+        if (!selected) {
+            throw new Error(`Could not find option "${optionTextToSelect}" for ${labelText} after scrolling the dropdown`);
         }
+        console.log(`   Selected option "${optionTextToSelect}" for ${labelText}`);
     } else {
         // Generic logic: select the first available valid option without using search
         const genericOption = this.page.locator('[role="option"], li[role="menuitem"], .ant-select-item-option, [class*="option"]').filter({ hasNotText: 'Search' }).filter({ state: 'visible' }).first();
