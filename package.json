@@ -6,7 +6,13 @@
     "test": "npx playwright test",
     "test:headed": "npx playwright test --headed",
     "test:ui": "npx playwright test --ui",
-    "report": "npx playwright show-report"
+    "report": "npx playwright show-report",
+    "perf:k6:smoke": "k6 run -e SCENARIO=smoke performance/k6/ls1-http.js",
+    "perf:k6:load": "k6 run -e SCENARIO=load performance/k6/ls1-http.js",
+    "perf:k6:stress": "k6 run -e SCENARIO=stress performance/k6/ls1-http.js",
+    "perf:jmeter:smoke": "jmeter -n -t performance/jmeter/ls1-http.jmx -JTEST_PROFILE=smoke -JTHREADS=1 -JRAMP_UP=10 -JDURATION=60 -l performance/results/jmeter-smoke.jtl",
+    "perf:jmeter:load": "jmeter -n -t performance/jmeter/ls1-http.jmx -JTEST_PROFILE=load -JTHREADS=10 -JRAMP_UP=120 -JDURATION=300 -l performance/results/jmeter-load.jtl",
+    "perf:jmeter:stress": "jmeter -n -t performance/jmeter/ls1-http.jmx -JTEST_PROFILE=stress -JTHREADS=50 -JRAMP_UP=180 -JDURATION=600 -l performance/results/jmeter-stress.jtl"
   },
   "devDependencies": {
     "@playwright/test": "^1.44.0",
