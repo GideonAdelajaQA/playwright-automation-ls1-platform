@@ -215,9 +215,74 @@ It covers:
 10. Uploading a contact photo from the local PC.
 11. Clicking `Save Changes`.
 
+## What The Performance Tests Achieve
+
+The performance tests are HTTP-level tests. They do not drive a browser and they do not create purchase orders, sales orders, deliveries, shipments, transporters, or POD records.
+
+They are designed to answer these questions:
+
+- Is the LS1 web app reachable under repeated traffic?
+- How quickly do key LS1 routes respond?
+- What is the p95 response time under smoke, load, and stress traffic?
+- Does the app start returning HTTP errors as traffic increases?
+- At what load level does response time or error rate become unacceptable?
+
+The current performance tests focus on route availability and latency for important LS1 pages such as:
+
+- `/`
+- `/customer/dashboard`
+- `/customer/operations/purchase-orders`
+- `/customer/operations/deliveries`
+
+These routes can be overridden when running the k6 script or JMeter plan. The default tests are intentionally safe because they repeatedly request pages without mutating LS1 business data.
+
+### Performance Profiles
+
+The repo has three performance profiles:
+
+| Profile | Purpose | What it tells you |
+| --- | --- | --- |
+| Smoke | Very small test with minimal users | Confirms the target URL, routes, and test scripts work before a bigger run |
+| Load | Normal expected traffic for a longer period | Shows baseline response time, throughput, and error rate under steady usage |
+| Stress | Increasing traffic beyond normal load | Helps find the point where LS1 slows down, fails, or becomes unstable |
+
+### Key Metrics
+
+The main metrics to watch are:
+
+- `http_req_duration`: how long requests take.
+- `p(95)`: the 95th percentile response time, meaning 95% of requests were faster than this value.
+- `http_req_failed`: the percentage of failed HTTP requests.
+- Request count/rate: how many requests were completed during the test.
+- JMeter error percentage: how many samples failed assertions or returned bad responses.
+
+### Why Both k6 and JMeter Exist
+
+k6 and JMeter overlap, but they are useful in different ways:
+
+- k6 is code-based, lightweight, easy to run in CI, and good for repeatable scripted performance checks.
+- JMeter is GUI-friendly, widely used by QA teams, and good for producing `.jtl` results and HTML dashboards.
+
+Keeping both gives the team flexibility. Engineers can run k6 quickly from the command line, while QA or stakeholders can use JMeter reports for deeper review and presentation.
+
 ## Run k6 Performance Tests
 
 k6 must be installed and available on `PATH`.
+
+The k6 script is:
+
+```text
+performance/k6/ls1-http.js
+```
+
+It works by:
+
+1. Reading the target URL from `TARGET_URL` or `BASE_URL`.
+2. Reading the profile from `SCENARIO`.
+3. Sending repeated HTTP `GET` requests to the configured LS1 routes.
+4. Checking that each route responds and does not return a server error.
+5. Recording route duration, request duration, and failure rate.
+6. Writing a JSON summary to `performance/results/k6-summary.json`.
 
 Smoke:
 
@@ -243,9 +308,36 @@ Useful override:
 k6 run -e SCENARIO=stress -e TARGET_URL=https://ls1dev.web.app performance/k6/ls1-http.js
 ```
 
+Override the routes:
+
+```bash
+k6 run -e ROUTES="/,/customer/dashboard,/customer/operations/purchase-orders" performance/k6/ls1-http.js
+```
+
+Expected result:
+
+- Smoke should pass before running load or stress.
+- Load should keep failure rate low and p95 response time within the threshold in the k6 script.
+- Stress may eventually degrade. That is expected; the value is finding where degradation starts.
+
 ## Run JMeter Performance Tests
 
 Apache JMeter must be installed and available on `PATH`.
+
+The JMeter plan is:
+
+```text
+performance/jmeter/ls1-http.jmx
+```
+
+It works by:
+
+1. Starting a configurable number of virtual users.
+2. Ramping those users up over a configurable period.
+3. Repeatedly requesting the LS1 routes in the test plan.
+4. Applying assertions so server errors such as `500`, `502`, `503`, and `504` are treated as failures.
+5. Writing raw results to `.jtl` files under `performance/results/`.
+6. Allowing an HTML dashboard to be generated from the `.jtl` file.
 
 Smoke:
 
@@ -272,6 +364,18 @@ jmeter -g performance/results/jmeter-load.jtl -o performance/results/jmeter-load
 ```
 
 The output report folder must not already exist.
+
+Useful override:
+
+```bash
+jmeter -n -t performance/jmeter/ls1-http.jmx -JTARGET_HOST=ls1dev.web.app -JTHREADS=25 -JRAMP_UP=120 -JDURATION=600 -l performance/results/custom.jtl
+```
+
+Expected result:
+
+- Smoke confirms the JMeter plan and target are valid.
+- Load provides a baseline for average, min, max, and percentile response times.
+- Stress shows whether error percentage rises or response time becomes unacceptable as virtual users increase.
 
 ## Debugging
 
