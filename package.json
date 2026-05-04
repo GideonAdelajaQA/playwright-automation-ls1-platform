@@ -5,6 +5,7 @@
   "scripts": {
     "test": "npx playwright test",
     "test:headed": "npx playwright test --headed",
+    "test:admin-transporter": "npx playwright test tests/admin-transporter.spec.js",
     "test:ui": "npx playwright test --ui",
     "report": "npx playwright show-report",
     "perf:k6:smoke": "k6 run -e SCENARIO=smoke performance/k6/ls1-http.js",
